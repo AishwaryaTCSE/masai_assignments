@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Student CRUD App</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 700px; margin: 30px auto; }
+    form { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+    form input { padding: 8px; flex: 1 1 150px; }
+    button { padding: 8px 15px; }
+    .student { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; }
+    .actions button { margin-left: 10px; }
+    #loading { color: blue; }
+    #error { color: red; }
+  </style>
+</head>
+<body>
+
+<h2>CRUD App - Students</h2>
+
+<form id="student-form">
+  <input type="text" id="name" placeholder="Name" required />
+  <input type="number" id="age" placeholder="Age" required />
+  <input type="text" id="course" placeholder="Course" required />
+  <button type="submit">Add Student</button>
+</form>
+
+<p id="loading" style="display:none;">Loading...</p>
+<p id="error"></p>
+<div id="students-list"></div>
+
+<script>
+const apiUrl = "https://6829a2c86075e87073a708bd.mockapi.io/students"; // Replace with your endpoint
+
+const form = document.getElementById("student-form");
+const nameInput = document.getElementById("name");
+const ageInput = document.getElementById("age");
+const courseInput = document.getElementById("course");
+const studentsList = document.getElementById("students-list");
+const loadingEl = document.getElementById("loading");
+const errorEl = document.getElementById("error");
+
+let editId = null;
+
+// Show/hide loading
+function setLoading(state) {
+  loadingEl.style.display = state ? "block" : "none";
+}
+
+// Show error
+function showError(msg) {
+  errorEl.textContent = msg;
+  setTimeout(() => (errorEl.textContent = ""), 3000);
+}
+
+// Fetch and display all students (READ)
+async function fetchStudents() {
+  setLoading(true);
+  try {
+    const res = await fetch(apiUrl);
+    const data = await res.json();
+    renderStudents(data);
+  } catch (err) {
+    showError("Failed to fetch students.");
+  } finally {
+    setLoading(false);
+  }
+}
+
+// Render student list
+function renderStudents(students) {
+  studentsList.innerHTML = "";
+  students.forEach(student => {
+    const div = document.createElement("div");
+    div.className = "student";
+    div.innerHTML = `
+      <div>
+        <strong>${student.name}</strong> | Age: ${student.age} | Course: ${student.course}
+      </div>
+      <div class="actions">
+        <button onclick="editStudent('${student.id}', '${student.name}', ${student.age}, '${student.course}')">Edit</button>
+        <button onclick="deleteStudent('${student.id}')">Delete</button>
+      </div>
+    `;
+    studentsList.appendChild(div);
+  });
+}
+
+// Add new student (CREATE)
+async function createStudent(student) {
+  try {
+    const res = await fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(student),
+    });
+    if (!res.ok) throw new Error("Error adding student.");
+    await fetchStudents();
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+// Update student (UPDATE)
+async function updateStudent(id, student) {
+  try {
+    const res = await fetch(`${apiUrl}/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(student),
+    });
+    if (!res.ok) throw new Error("Error updating student.");
+    await fetchStudents();
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+// Delete student (DELETE)
+async function deleteStudent(id) {
+  if (!confirm("Delete this student?")) return;
+  try {
+    const res = await fetch(`${apiUrl}/${id}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) throw new Error("Error deleting student.");
+    await fetchStudents();
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+// Fill form for editing
+function editStudent(id, name, age, course) {
+  editId = id;
+  nameInput.value = name;
+  ageInput.value = age;
+  courseInput.value = course;
+  form.querySelector("button").textContent = "Update Student";
+}
+
+// Handle form submit (CREATE or UPDATE)
+form.addEventListener("submit", function (e) {
+  e.preventDefault();
+
+  const name = nameInput.value.trim();
+  const age = parseInt(ageInput.value.trim());
+  const course = courseInput.value.trim();
+
+  if (!name || !age || !course) {
+    showError("All fields are required!");
+    return;
+  }
+
+  const student = { name, age, course };
+
+  if (editId) {
+    updateStudent(editId, student);
+    editId = null;
+    form.querySelector("button").textContent = "Add Student";
+  } else {
+    createStudent(student);
+  }
+
+  form.reset();
+});
+
+// Load students on page load
+fetchStudents();
+
+// Expose functions globally for inline onclick handlers
+window.editStudent = editStudent;
+window.deleteStudent = deleteStudent;
+</script>
+
+</body>
+</html>
